@@ -92,9 +92,10 @@ jobs:
 
       - name: Install TerraView
         run: |
-          curl -sSL https://github.com/leonamvasquez/terraview/releases/latest/download/terraview-linux-amd64 \
-            -o /usr/local/bin/terraview
-          chmod +x /usr/local/bin/terraview
+          curl -sSL https://github.com/leonamvasquez/terraview/releases/latest/download/terraview-linux-amd64.tar.gz \
+            -o /tmp/terraview.tar.gz
+          tar -xzf /tmp/terraview.tar.gz -C /tmp
+          sudo mv /tmp/terraview /usr/local/bin/terraview
           terraview version
 
       - name: Install Checkov
