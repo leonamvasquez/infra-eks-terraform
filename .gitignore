@@ -1,0 +1,20 @@
+# Terraform
+.terraform/
+*.tfplan
+tfplan
+plan.json
+plan-output.txt
+*.tfstate
+*.tfstate.backup
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# TerraView output
+review-output/
+sarif-output/
+terraview-output.txt
+drift*.json
