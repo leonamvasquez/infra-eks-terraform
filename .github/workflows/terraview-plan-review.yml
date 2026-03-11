@@ -4,12 +4,14 @@ on:
   push:
     branches: [main, develop]
     paths:
-      - "infra-eks-terraform/**"
+      - "**.tf"
+      - "**.tfvars"
       - ".github/workflows/terraview-plan-review.yml"
   pull_request:
     branches: [main, develop]
     paths:
-      - "infra-eks-terraform/**"
+      - "**.tf"
+      - "**.tfvars"
       - ".github/workflows/terraview-plan-review.yml"
   workflow_dispatch:
 
