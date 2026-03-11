@@ -23,7 +23,6 @@ env:
 permissions:
   contents: read
   pull-requests: write
-  security-events: write
 
 jobs:
   # ============================================================================
@@ -103,23 +102,23 @@ jobs:
 
       - name: TerraView Scan
         id: terraview
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
-          mkdir -p ./review-output ./sarif-output
+          mkdir -p ./review-output
           set +e
           terraview scan checkov \
             --plan plan.json \
-            --static \
+            --provider openrouter \
+            --model openai/gpt-4o \
             --format json \
             --no-color \
             --output ./review-output \
-            --impact \
-            --diagram \
-            --explain-scores \
+            --br \
             2>&1 | tee terraview-output.txt
           exit_code=$?
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
 
-          # Extrair scores do JSON para o summary
           if [ -f ./review-output/review.json ]; then
             echo "score_security=$(jq -r '.score.security // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
             echo "score_compliance=$(jq -r '.score.compliance // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
@@ -129,24 +128,6 @@ jobs:
             echo "total_findings=$(jq -r '.findings | length' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
           fi
           exit 0
-
-      - name: TerraView SARIF Scan
-        if: always()
-        run: |
-          terraview scan checkov \
-            --plan plan.json \
-            --static \
-            --format sarif \
-            --no-color \
-            --output ./sarif-output \
-            2>/dev/null || true
-
-      - name: Upload SARIF to GitHub Security
-        if: always() && hashFiles('sarif-output/review.sarif.json') != ''
-        uses: github/codeql-action/upload-sarif@v3
-        with:
-          sarif_file: sarif-output/review.sarif.json
-          category: terraview
 
       - name: Upload Review Artifacts
         if: always()
