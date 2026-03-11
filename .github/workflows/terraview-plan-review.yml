@@ -1,0 +1,281 @@
+# ==============================================================================
+# TerraView — Terraform Plan Review Pipeline
+# ==============================================================================
+# Executa terraform plan e analisa a infraestrutura com TerraView.
+# Apenas plano — nunca executa apply.
+#
+# Secrets necessários (configurar em GitHub > Settings > Secrets and variables):
+#   - AWS_ACCESS_KEY_ID       : Chave de acesso da conta AWS
+#   - AWS_SECRET_ACCESS_KEY   : Chave secreta da conta AWS
+#   - AWS_SESSION_TOKEN       : (opcional) Token de sessão para credenciais temporárias
+#
+# Variables necessárias (configurar em GitHub > Settings > Variables):
+#   - TF_STATE_BUCKET         : Nome do bucket S3 para o terraform state
+#   - TF_LOCK_TABLE           : Nome da tabela DynamoDB para lock (default: terraform-locks)
+# ==============================================================================
+
+name: "TerraView — Plan Review"
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "infra-eks-terraform/**"
+      - ".github/workflows/terraview-plan-review.yml"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "infra-eks-terraform/**"
+      - ".github/workflows/terraview-plan-review.yml"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: infra-eks-terraform
+
+env:
+  TF_INPUT: "false"
+  TF_IN_AUTOMATION: "true"
+  AWS_REGION: "us-east-1"
+
+permissions:
+  contents: read
+  pull-requests: write
+  security-events: write
+
+jobs:
+  # ============================================================================
+  # Job 1: Terraform Validate — Verificação rápida de sintaxe
+  # ============================================================================
+  validate:
+    name: "Terraform Validate"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.9"
+          terraform_wrapper: false
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive -diff
+
+      - name: Terraform Init (validate only)
+        run: terraform init -backend=false
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+
+      - name: Terraform Validate
+        run: terraform validate
+
+  # ============================================================================
+  # Job 2: Plan + TerraView Review — Análise completa da infraestrutura
+  # ============================================================================
+  plan-review:
+    name: "Plan + TerraView Review"
+    runs-on: ubuntu-latest
+    needs: validate
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "~> 1.9"
+          terraform_wrapper: false
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Terraform Init
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="dynamodb_table=${{ vars.TF_LOCK_TABLE || 'terraform-locks' }}"
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -out=tfplan -input=false -no-color 2>&1 | tee plan-output.txt
+          terraform show -json tfplan > plan.json
+          echo "resources=$(jq '.resource_changes | length' plan.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Install TerraView
+        run: |
+          curl -sSL https://github.com/leonamvasquez/terraview/releases/latest/download/terraview-linux-amd64 \
+            -o /usr/local/bin/terraview
+          chmod +x /usr/local/bin/terraview
+          terraview version
+
+      - name: Install Checkov
+        run: pip install checkov --quiet
+
+      - name: TerraView Scan
+        id: terraview
+        run: |
+          set +e
+          terraview scan checkov \
+            --plan plan.json \
+            --static \
+            --format json \
+            --no-color \
+            --output ./review-output \
+            --impact \
+            --diagram \
+            --explain-scores \
+            2>&1 | tee terraview-output.txt
+          exit_code=$?
+          echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
+
+          # Extrair scores do JSON para o summary
+          if [ -f ./review-output/review.json ]; then
+            echo "score_security=$(jq -r '.score.security // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+            echo "score_compliance=$(jq -r '.score.compliance // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+            echo "score_maintainability=$(jq -r '.score.maintainability // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+            echo "score_overall=$(jq -r '.score.overall // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+            echo "verdict=$(jq -r '.verdict.label // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+            echo "total_findings=$(jq -r '.findings | length' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+          fi
+          exit 0
+
+      - name: TerraView SARIF Scan
+        if: always()
+        run: |
+          terraview scan checkov \
+            --plan plan.json \
+            --static \
+            --format sarif \
+            --no-color \
+            --output ./sarif-output \
+            2>/dev/null || true
+
+      - name: Upload SARIF to GitHub Security
+        if: always() && hashFiles('infra-eks-terraform/sarif-output/review.sarif.json') != ''
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: infra-eks-terraform/sarif-output/review.sarif.json
+          category: terraview
+
+      - name: Upload Review Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraview-review
+          retention-days: 30
+          path: |
+            infra-eks-terraform/review-output/
+            infra-eks-terraform/plan.json
+            infra-eks-terraform/plan-output.txt
+            infra-eks-terraform/terraview-output.txt
+
+      - name: Comment PR with Review Results
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const exitCode = '${{ steps.terraview.outputs.exit_code }}';
+            const scoreSec = '${{ steps.terraview.outputs.score_security }}';
+            const scoreComp = '${{ steps.terraview.outputs.score_compliance }}';
+            const scoreMaint = '${{ steps.terraview.outputs.score_maintainability }}';
+            const scoreOverall = '${{ steps.terraview.outputs.score_overall }}';
+            const verdict = '${{ steps.terraview.outputs.verdict }}';
+            const totalFindings = '${{ steps.terraview.outputs.total_findings }}';
+            const resources = '${{ steps.plan.outputs.resources }}';
+
+            let statusEmoji = '✅';
+            let statusLabel = 'PASSED';
+            if (exitCode === '2') {
+              statusEmoji = '🚨';
+              statusLabel = 'CRITICAL';
+            } else if (exitCode === '1') {
+              statusEmoji = '⚠️';
+              statusLabel = 'HIGH';
+            }
+
+            let reviewMd = '';
+            const mdPath = 'infra-eks-terraform/review-output/review.md';
+            try {
+              reviewMd = fs.readFileSync(mdPath, 'utf8');
+              if (reviewMd.length > 50000) {
+                reviewMd = reviewMd.substring(0, 50000) + '\n\n... (truncated)';
+              }
+            } catch (e) {
+              reviewMd = '_Review markdown not available._';
+            }
+
+            const body = `## ${statusEmoji} TerraView Plan Review — ${statusLabel}
+
+            | Metric | Value |
+            |--------|-------|
+            | **Resources** | ${resources} |
+            | **Findings** | ${totalFindings} |
+            | **Verdict** | ${verdict} |
+            | **Security** | ${scoreSec}/10 |
+            | **Compliance** | ${scoreComp}/10 |
+            | **Maintainability** | ${scoreMaint}/10 |
+            | **Overall** | ${scoreOverall}/10 |
+
+            <details>
+            <summary>📋 Full Review Report</summary>
+
+            ${reviewMd}
+
+            </details>
+
+            > 🤖 Generated by [TerraView](https://github.com/leonamvasquez/terraview) — Terraform AI Reviewer
+            `;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('TerraView Plan Review')
+            );
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+      - name: Check TerraView Exit Code
+        if: always()
+        run: |
+          exit_code=${{ steps.terraview.outputs.exit_code }}
+          echo "::notice::TerraView exit code: ${exit_code}"
+          if [ "${exit_code}" = "2" ]; then
+            echo "::error::TerraView detected CRITICAL findings in the infrastructure plan"
+            exit 2
+          elif [ "${exit_code}" = "1" ]; then
+            echo "::warning::TerraView detected HIGH severity findings in the infrastructure plan"
+            exit 1
+          fi
+          echo "::notice::TerraView review passed — no critical or high findings"
