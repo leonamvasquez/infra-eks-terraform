@@ -1,19 +1,3 @@
-# ==============================================================================
-# TerraView — Terraform Plan Review Pipeline
-# ==============================================================================
-# Executa terraform plan e analisa a infraestrutura com TerraView.
-# Apenas plano — nunca executa apply.
-#
-# Secrets necessários (configurar em GitHub > Settings > Secrets and variables):
-#   - AWS_ACCESS_KEY_ID       : Chave de acesso da conta AWS
-#   - AWS_SECRET_ACCESS_KEY   : Chave secreta da conta AWS
-#   - AWS_SESSION_TOKEN       : (opcional) Token de sessão para credenciais temporárias
-#
-# Variables necessárias (configurar em GitHub > Settings > Variables):
-#   - TF_STATE_BUCKET         : Nome do bucket S3 para o terraform state
-#   - TF_LOCK_TABLE           : Nome da tabela DynamoDB para lock (default: terraform-locks)
-# ==============================================================================
-
 name: "TerraView — Plan Review"
 
 on:
@@ -28,10 +12,6 @@ on:
       - "infra-eks-terraform/**"
       - ".github/workflows/terraview-plan-review.yml"
   workflow_dispatch:
-
-defaults:
-  run:
-    working-directory: infra-eks-terraform
 
 env:
   TF_INPUT: "false"
@@ -163,10 +143,10 @@ jobs:
             2>/dev/null || true
 
       - name: Upload SARIF to GitHub Security
-        if: always() && hashFiles('infra-eks-terraform/sarif-output/review.sarif.json') != ''
+        if: always() && hashFiles('sarif-output/review.sarif.json') != ''
         uses: github/codeql-action/upload-sarif@v3
         with:
-          sarif_file: infra-eks-terraform/sarif-output/review.sarif.json
+          sarif_file: sarif-output/review.sarif.json
           category: terraview
 
       - name: Upload Review Artifacts
@@ -176,10 +156,10 @@ jobs:
           name: terraview-review
           retention-days: 30
           path: |
-            infra-eks-terraform/review-output/
-            infra-eks-terraform/plan.json
-            infra-eks-terraform/plan-output.txt
-            infra-eks-terraform/terraview-output.txt
+            review-output/
+            plan.json
+            plan-output.txt
+            terraview-output.txt
 
       - name: Comment PR with Review Results
         if: github.event_name == 'pull_request' && always()
@@ -208,7 +188,7 @@ jobs:
             }
 
             let reviewMd = '';
-            const mdPath = 'infra-eks-terraform/review-output/review.md';
+            const mdPath = 'review-output/review.md';
             try {
               reviewMd = fs.readFileSync(mdPath, 'utf8');
               if (reviewMd.length > 50000) {
