@@ -108,7 +108,6 @@ jobs:
           mkdir -p ./review-output
           set +e
 
-          # Roda em pretty para aparecer no log E salva em json para leitura programática
           terraview scan checkov \
             --plan plan.json \
             --provider openrouter \
@@ -132,10 +131,10 @@ jobs:
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
 
           if [ -f ./review-output/review.json ]; then
-            SCORE_SEC=$(jq -r '.score.security // "N/A"' ./review-output/review.json)
-            SCORE_COMP=$(jq -r '.score.compliance // "N/A"' ./review-output/review.json)
-            SCORE_MAINT=$(jq -r '.score.maintainability // "N/A"' ./review-output/review.json)
-            SCORE_OVERALL=$(jq -r '.score.overall // "N/A"' ./review-output/review.json)
+            SCORE_SEC=$(jq -r '.score.security_score // "N/A"' ./review-output/review.json)
+            SCORE_COMP=$(jq -r '.score.compliance_score // "N/A"' ./review-output/review.json)
+            SCORE_MAINT=$(jq -r '.score.maintainability_score // "N/A"' ./review-output/review.json)
+            SCORE_OVERALL=$(jq -r '.score.overall_score // "N/A"' ./review-output/review.json)
             VERDICT=$(jq -r '.verdict.label // "N/A"' ./review-output/review.json)
             TOTAL=$(jq -r '.findings | length' ./review-output/review.json)
             RESOURCES=${{ steps.plan.outputs.resources }}
