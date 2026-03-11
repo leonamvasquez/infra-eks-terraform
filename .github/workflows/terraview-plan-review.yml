@@ -104,6 +104,7 @@ jobs:
       - name: TerraView Scan
         id: terraview
         run: |
+          mkdir -p ./review-output ./sarif-output
           set +e
           terraview scan checkov \
             --plan plan.json \
