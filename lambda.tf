@@ -68,9 +68,9 @@ resource "aws_cloudwatch_log_group" "lambda" {
 
 # --- Lambda DLQ ---
 resource "aws_sqs_queue" "lambda_dlq" {
-  name                       = "${local.name_prefix}-lambda-dlq"
-  message_retention_seconds  = 1209600
-  kms_master_key_id          = aws_kms_key.sqs.id
+  name                              = "${local.name_prefix}-lambda-dlq"
+  message_retention_seconds         = 1209600
+  kms_master_key_id                 = aws_kms_key.sqs.id
   kms_data_key_reuse_period_seconds = 300
 
   tags = { Name = "${local.name_prefix}-lambda-dlq" }
@@ -88,7 +88,7 @@ resource "aws_lambda_permission" "eventbridge" {
 
 # --- Lambda Provisioned Concurrency for custom-authorizer ---
 resource "aws_lambda_provisioned_concurrency_config" "authorizer" {
-  function_name                  = aws_lambda_function.main["custom-authorizer"].function_name
+  function_name                     = aws_lambda_function.main["custom-authorizer"].function_name
   provisioned_concurrent_executions = 5
-  qualifier                      = aws_lambda_function.main["custom-authorizer"].version
+  qualifier                         = aws_lambda_function.main["custom-authorizer"].version
 }

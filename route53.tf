@@ -68,24 +68,24 @@ resource "aws_route53_record" "cdn" {
 # --- Health Checks ---
 resource "aws_route53_health_check" "api" {
   fqdn              = "api.${var.domain_name}"
-  port               = 443
-  type               = "HTTPS"
-  resource_path      = "/health"
-  failure_threshold  = 3
-  request_interval   = 30
-  measure_latency    = true
+  port              = 443
+  type              = "HTTPS"
+  resource_path     = "/health"
+  failure_threshold = 3
+  request_interval  = 30
+  measure_latency   = true
 
   tags = { Name = "${local.name_prefix}-api-health-check" }
 }
 
 resource "aws_route53_health_check" "app" {
   fqdn              = "app.${var.domain_name}"
-  port               = 443
-  type               = "HTTPS"
-  resource_path      = "/"
-  failure_threshold  = 3
-  request_interval   = 30
-  measure_latency    = true
+  port              = 443
+  type              = "HTTPS"
+  resource_path     = "/"
+  failure_threshold = 3
+  request_interval  = 30
+  measure_latency   = true
 
   tags = { Name = "${local.name_prefix}-app-health-check" }
 }

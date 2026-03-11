@@ -62,10 +62,10 @@ resource "aws_ssm_parameter" "api_endpoint" {
 
 # --- Maintenance Window ---
 resource "aws_ssm_maintenance_window" "main" {
-  name              = "${local.name_prefix}-maintenance"
-  schedule          = "cron(0 4 ? * SUN *)"
-  duration          = 3
-  cutoff            = 1
+  name                       = "${local.name_prefix}-maintenance"
+  schedule                   = "cron(0 4 ? * SUN *)"
+  duration                   = 3
+  cutoff                     = 1
   allow_unassociated_targets = true
 
   tags = { Name = "${local.name_prefix}-maintenance-window" }
@@ -83,13 +83,13 @@ resource "aws_ssm_maintenance_window_target" "bastion" {
 }
 
 resource "aws_ssm_maintenance_window_task" "patch" {
-  window_id        = aws_ssm_maintenance_window.main.id
-  name             = "patch-instances"
-  task_type        = "RUN_COMMAND"
-  task_arn         = "AWS-RunPatchBaseline"
-  priority         = 1
-  max_concurrency  = "50%"
-  max_errors       = "25%"
+  window_id       = aws_ssm_maintenance_window.main.id
+  name            = "patch-instances"
+  task_type       = "RUN_COMMAND"
+  task_arn        = "AWS-RunPatchBaseline"
+  priority        = 1
+  max_concurrency = "50%"
+  max_errors      = "25%"
 
   targets {
     key    = "WindowTargetIds"

@@ -197,8 +197,8 @@ resource "aws_eks_node_group" "gpu" {
   }
 
   labels = {
-    role                             = "gpu"
-    "nvidia.com/gpu.accelerator"     = "true"
+    role                         = "gpu"
+    "nvidia.com/gpu.accelerator" = "true"
   }
 
   taint {

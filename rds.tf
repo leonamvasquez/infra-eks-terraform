@@ -73,8 +73,8 @@ resource "aws_rds_cluster" "main" {
   preferred_backup_window      = "03:00-04:00"
   preferred_maintenance_window = "sun:05:00-sun:06:00"
 
-  deletion_protection = true
-  skip_final_snapshot = false
+  deletion_protection       = true
+  skip_final_snapshot       = false
   final_snapshot_identifier = "${local.name_prefix}-aurora-final"
 
   enabled_cloudwatch_logs_exports = ["postgresql", "upgrade"]
@@ -90,11 +90,11 @@ resource "aws_rds_cluster" "main" {
 resource "aws_rds_cluster_instance" "main" {
   count = 2
 
-  identifier           = "${local.name_prefix}-aurora-${count.index + 1}"
-  cluster_identifier   = aws_rds_cluster.main.id
-  instance_class       = "db.serverless"
-  engine               = aws_rds_cluster.main.engine
-  engine_version       = aws_rds_cluster.main.engine_version
+  identifier              = "${local.name_prefix}-aurora-${count.index + 1}"
+  cluster_identifier      = aws_rds_cluster.main.id
+  instance_class          = "db.serverless"
+  engine                  = aws_rds_cluster.main.engine
+  engine_version          = aws_rds_cluster.main.engine_version
   db_parameter_group_name = aws_db_parameter_group.main.name
 
   # INTENTIONAL_MISCONFIG: HIGH - RDS instance without enhanced monitoring

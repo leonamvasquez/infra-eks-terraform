@@ -31,8 +31,8 @@ resource "aws_secretsmanager_secret" "api_keys" {
 resource "aws_secretsmanager_secret_version" "api_keys" {
   secret_id = aws_secretsmanager_secret.api_keys.id
   secret_string = jsonencode({
-    stripe_key     = "sk_placeholder_replace_me"
-    sendgrid_key   = "SG.placeholder_replace_me"
+    stripe_key      = "sk_placeholder_replace_me"
+    sendgrid_key    = "SG.placeholder_replace_me"
     datadog_api_key = "placeholder_replace_me"
   })
 }

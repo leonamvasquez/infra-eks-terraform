@@ -142,14 +142,14 @@ resource "aws_s3_bucket_public_access_block" "config" {
 # --- CloudTrail ---
 # INTENTIONAL_MISCONFIG: CRITICAL - CloudTrail without log file validation
 resource "aws_cloudtrail" "main" {
-  name                       = "${local.name_prefix}-cloudtrail"
-  s3_bucket_name             = aws_s3_bucket.cloudtrail.id
+  name                          = "${local.name_prefix}-cloudtrail"
+  s3_bucket_name                = aws_s3_bucket.cloudtrail.id
   include_global_service_events = true
-  is_multi_region_trail      = true
-  enable_log_file_validation = false
-  cloud_watch_logs_group_arn = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
-  cloud_watch_logs_role_arn  = aws_iam_role.cloudtrail.arn
-  kms_key_id                 = aws_kms_key.cloudwatch.arn
+  is_multi_region_trail         = true
+  enable_log_file_validation    = false
+  cloud_watch_logs_group_arn    = "${aws_cloudwatch_log_group.cloudtrail.arn}:*"
+  cloud_watch_logs_role_arn     = aws_iam_role.cloudtrail.arn
+  kms_key_id                    = aws_kms_key.cloudwatch.arn
 
   event_selector {
     read_write_type           = "All"

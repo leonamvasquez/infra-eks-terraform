@@ -33,7 +33,7 @@ availability_zones = [
 ]
 
 # --- EKS ---
-eks_cluster_version    = "1.28"
+eks_cluster_version       = "1.28"
 eks_system_instance_types = ["m6i.large"]
 eks_app_instance_types    = ["m6i.xlarge", "m5.xlarge"]
 eks_gpu_instance_types    = ["g5.xlarge"]
@@ -46,7 +46,7 @@ eks_gpu_desired_size    = 0
 rds_master_username = "dbadmin"
 rds_database_name   = "enterprise"
 
-redis_node_type       = "cache.r6g.large"
+redis_node_type          = "cache.r6g.large"
 redis_num_cache_clusters = 2
 
 opensearch_instance_type  = "r6g.large.search"

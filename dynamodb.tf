@@ -76,12 +76,12 @@ resource "aws_dynamodb_table" "locks" {
 
 # --- Event Store Table ---
 resource "aws_dynamodb_table" "events" {
-  name         = "${local.name_prefix}-events"
-  billing_mode = "PROVISIONED"
+  name           = "${local.name_prefix}-events"
+  billing_mode   = "PROVISIONED"
   read_capacity  = 25
   write_capacity = 25
-  hash_key     = "aggregate_id"
-  range_key    = "event_id"
+  hash_key       = "aggregate_id"
+  range_key      = "event_id"
 
   attribute {
     name = "aggregate_id"

@@ -49,12 +49,12 @@ resource "aws_api_gateway_integration" "proxy" {
 }
 
 resource "aws_api_gateway_authorizer" "main" {
-  name                   = "${local.name_prefix}-authorizer"
-  rest_api_id            = aws_api_gateway_rest_api.main.id
-  authorizer_uri         = aws_lambda_function.main["custom-authorizer"].invoke_arn
-  authorizer_credentials = aws_iam_role.api_gateway.arn
-  type                   = "TOKEN"
-  identity_source        = "method.request.header.Authorization"
+  name                             = "${local.name_prefix}-authorizer"
+  rest_api_id                      = aws_api_gateway_rest_api.main.id
+  authorizer_uri                   = aws_lambda_function.main["custom-authorizer"].invoke_arn
+  authorizer_credentials           = aws_iam_role.api_gateway.arn
+  type                             = "TOKEN"
+  identity_source                  = "method.request.header.Authorization"
   authorizer_result_ttl_in_seconds = 300
 }
 
@@ -66,7 +66,7 @@ resource "aws_api_gateway_stage" "main" {
 
   access_log_settings {
     destination_arn = aws_cloudwatch_log_group.api_gateway.arn
-    format         = "$context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] \"$context.httpMethod $context.resourcePath $context.protocol\" $context.status $context.responseLength $context.requestId"
+    format          = "$context.identity.sourceIp $context.identity.caller $context.identity.user [$context.requestTime] \"$context.httpMethod $context.resourcePath $context.protocol\" $context.status $context.responseLength $context.requestId"
   }
 
   xray_tracing_enabled = true
