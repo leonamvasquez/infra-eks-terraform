@@ -107,6 +107,17 @@ jobs:
         run: |
           mkdir -p ./review-output
           set +e
+
+          # Roda em pretty para aparecer no log E salva em json para leitura programática
+          terraview scan checkov \
+            --plan plan.json \
+            --provider openrouter \
+            --model openai/gpt-4o \
+            --format pretty \
+            --no-color \
+            --br \
+            2>&1 | tee terraview-output.txt
+
           terraview scan checkov \
             --plan plan.json \
             --provider openrouter \
@@ -115,19 +126,42 @@ jobs:
             --no-color \
             --output ./review-output \
             --br \
-            2>&1 | tee terraview-output.txt
+            2>/dev/null
+
           exit_code=$?
           echo "exit_code=${exit_code}" >> "$GITHUB_OUTPUT"
 
           if [ -f ./review-output/review.json ]; then
-            echo "score_security=$(jq -r '.score.security // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
-            echo "score_compliance=$(jq -r '.score.compliance // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
-            echo "score_maintainability=$(jq -r '.score.maintainability // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
-            echo "score_overall=$(jq -r '.score.overall // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
-            echo "verdict=$(jq -r '.verdict.label // "N/A"' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
-            echo "total_findings=$(jq -r '.findings | length' ./review-output/review.json)" >> "$GITHUB_OUTPUT"
+            SCORE_SEC=$(jq -r '.score.security // "N/A"' ./review-output/review.json)
+            SCORE_COMP=$(jq -r '.score.compliance // "N/A"' ./review-output/review.json)
+            SCORE_MAINT=$(jq -r '.score.maintainability // "N/A"' ./review-output/review.json)
+            SCORE_OVERALL=$(jq -r '.score.overall // "N/A"' ./review-output/review.json)
+            VERDICT=$(jq -r '.verdict.label // "N/A"' ./review-output/review.json)
+            TOTAL=$(jq -r '.findings | length' ./review-output/review.json)
+            RESOURCES=${{ steps.plan.outputs.resources }}
+
+            echo "score_security=${SCORE_SEC}" >> "$GITHUB_OUTPUT"
+            echo "score_compliance=${SCORE_COMP}" >> "$GITHUB_OUTPUT"
+            echo "score_maintainability=${SCORE_MAINT}" >> "$GITHUB_OUTPUT"
+            echo "score_overall=${SCORE_OVERALL}" >> "$GITHUB_OUTPUT"
+            echo "verdict=${VERDICT}" >> "$GITHUB_OUTPUT"
+            echo "total_findings=${TOTAL}" >> "$GITHUB_OUTPUT"
+
+            echo "::notice title=TerraView — Veredito::${VERDICT}"
+            echo "::notice title=Score Geral::${SCORE_OVERALL}/10"
+            echo "::notice title=Segurança::${SCORE_SEC}/10  |  Conformidade: ${SCORE_COMP}/10  |  Manutenibilidade: ${SCORE_MAINT}/10"
+            echo "::notice title=Achados::${TOTAL} findings em ${RESOURCES} recursos"
           fi
           exit 0
+
+      - name: Job Summary
+        if: always()
+        run: |
+          if [ -f ./review-output/review.md ]; then
+            cat ./review-output/review.md >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo '### TerraView — sem relatório gerado' >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Review Artifacts
         if: always()
